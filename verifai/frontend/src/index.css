@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --verifai-bg: #0a0a0a;
+    --verifai-green: #00ff88;
+    --verifai-cyan: #00d4ff;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-[color:var(--verifai-bg)] text-white antialiased;
+    font-feature-settings: "ss01" 1, "ss02" 1;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl;
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 136, 0.12),
+      0 18px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  .neon-text {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(90deg, var(--verifai-green), var(--verifai-cyan));
+  }
+
+  .neon-ring {
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 136, 0.24),
+      0 0 24px rgba(0, 255, 136, 0.15);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-medium text-black transition;
+    background-image: linear-gradient(90deg, var(--verifai-green), var(--verifai-cyan));
+  }
+  .btn-primary:hover {
+    filter: brightness(1.05);
+    box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.2), 0 0 36px rgba(0, 212, 255, 0.14);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-white/90 transition hover:bg-white/10;
+  }
+
+  .skeleton {
+    @apply rounded-xl bg-white/5;
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.11),
+      rgba(255, 255, 255, 0.04)
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  .scan-border {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    border: 1px solid rgba(0, 255, 136, 0.35);
+    box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.14), 0 0 36px rgba(0, 255, 136, 0.12);
+    pointer-events: none;
+  }
+}
