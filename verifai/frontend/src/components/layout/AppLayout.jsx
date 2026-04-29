@@ -1,17 +1,11 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useMemo, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '../Sidebar.jsx'
 import Navbar from '../Navbar.jsx'
 
 const TitleCtx = createContext(null)
 
-export function usePageTitle() {
-  const ctx = useContext(TitleCtx)
-  if (!ctx) throw new Error('usePageTitle must be used within AppLayout')
-  return ctx
-}
-
-export function AppLayout() {
+export default function AppLayout() {
   const [title, setTitle] = useState('Dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 

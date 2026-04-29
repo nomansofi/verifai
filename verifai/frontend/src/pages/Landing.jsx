@@ -26,7 +26,6 @@ function ParticleField() {
 
       {Array.from({ length: 26 }).map((_, i) => (
         <motion.div
-          // eslint-disable-next-line react/no-array-index-key
           key={i}
           className="absolute h-1 w-1 rounded-full bg-white/25"
           initial={{
@@ -52,9 +51,12 @@ export default function Landing() {
 
       <header className="relative mx-auto flex w-full max-w-[1200px] items-center justify-between px-6 py-6">
         <div className="text-lg font-semibold">
-          <span className="neon-text">VERIFAI</span>
+          <span className="neon-text">VerifAi</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link to="/login" className="btn-ghost">
+            Login
+          </Link>
           <Link to="/dashboard" className="btn-ghost">
             Dashboard
           </Link>
@@ -78,9 +80,9 @@ export default function Landing() {
                 AI-powered attendance & access
               </div>
               <h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-6xl">
-                <span className="neon-text">VERIFAI</span>
+                <span className="neon-text">VerifAi</span>
               </h1>
-              <p className="mt-3 text-lg text-white/75">Smarter Tracking. Stronger Future.</p>
+              <p className="mt-3 text-lg text-white/75">Where Intelligence Confirms Presence.</p>
               <p className="mt-4 text-sm text-white/60">
                 A modern, secure attendance system with real-time face verification, analytics, and alerts — designed for
                 classrooms, workplaces, events, and access control.
@@ -88,6 +90,9 @@ export default function Landing() {
               <div className="mt-7 flex flex-wrap items-center gap-3">
                 <Link to="/dashboard" className="btn-primary">
                   Get Started <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link to="/login" className="btn-ghost">
+                  Student/Employee Login
                 </Link>
                 <Link to="/scan" className="btn-ghost">
                   Try Face Scan

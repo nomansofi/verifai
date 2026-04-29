@@ -34,9 +34,9 @@ export default function Sidebar({ collapsed, setCollapsed }) {
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
         <div className={cn('min-w-0', collapsed && 'opacity-0')}>
           <div className="text-lg font-semibold leading-none">
-            <span className="neon-text">VERIFAI</span>
+            <span className="neon-text">VerifAi</span>
           </div>
-          <div className="mt-1 text-[11px] text-white/60">Smarter Tracking. Stronger Future.</div>
+          <div className="mt-1 text-[11px] text-white/60">Where Intelligence Confirms Presence.</div>
         </div>
         <button
           type="button"

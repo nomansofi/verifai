@@ -3,3 +3,7 @@ uvicorn[standard]>=0.30.0
 pydantic>=2.7.0
 python-multipart>=0.0.9
 
+# Optional (enables real face recognition; replaces stub logic)
+face_recognition>=1.3.0
+opencv-python>=4.10.0.0
+

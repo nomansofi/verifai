@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, XCircle, Plus, MapPin, AlertTriangle } from 'lucide-react'
-import { usePageTitle } from '../components/layout/AppLayout.jsx'
+import { usePageTitle } from '../components/layout/pageTitleContext.js'
 import { apiGetAccessLogs, apiGetAlerts } from '../lib/api.js'
 import { cn } from '../lib/cn.js'
-import { useToast } from '../components/ToastProvider.jsx'
+import { useToast } from '../components/toastContext.js'
 
 function AccessPill({ access }) {
   return (
@@ -76,7 +76,6 @@ export default function AccessControl() {
             <tbody className="divide-y divide-white/10">
               {loading
                 ? Array.from({ length: 10 }).map((_, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
                     <tr key={i}>
                       <td className="px-4 py-3">
                         <div className="skeleton h-4 w-40" />

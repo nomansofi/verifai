@@ -4,9 +4,10 @@ import { UserCheck, UserX, AlarmClock, ShieldAlert } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import LiveFeed from '../components/LiveFeed.jsx'
 import AlertPanel from '../components/AlertPanel.jsx'
-import { usePageTitle } from '../components/layout/AppLayout.jsx'
+import { usePageTitle } from '../components/layout/pageTitleContext.js'
 import { apiGetAlerts, apiGetAnalytics } from '../lib/api.js'
 import { makeDonut } from '../data/mock.js'
+import ToggleBar from '../components/ToggleBar.jsx'
 
 function ChartCard({ title, subtitle, children }) {
   return (
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [analytics, setAnalytics] = useState(null)
   const [alerts, setAlerts] = useState([])
+  const [view, setView] = useState('overview') // overview | alerts
 
   useEffect(() => setTitle('Dashboard'), [setTitle])
 
@@ -49,10 +51,40 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm font-semibold">Overview</div>
+        <ToggleBar
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'overview', label: 'Overview' },
+            { value: 'alerts', label: 'Alerts' },
+          ]}
+        />
+      </div>
+
+      {view === 'alerts' ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="glass p-5 lg:col-span-2">
+            <div className="text-sm font-semibold">Security & system alerts</div>
+            <div className="mt-1 text-xs text-[color:var(--verifai-muted)]">Unknown faces, mismatches, and notifications</div>
+            <div className="mt-4">
+              <AlertPanel alerts={alerts} />
+            </div>
+          </div>
+          <div className="glass p-5">
+            <div className="text-sm font-semibold">Live feed</div>
+            <div className="mt-1 text-xs text-[color:var(--verifai-muted)]">Recent check-ins</div>
+            <div className="mt-4">{analytics?.liveFeed ? <LiveFeed items={analytics.liveFeed} /> : <div className="skeleton h-40 w-full" />}</div>
+          </div>
+        </div>
+      ) : null}
+
+      {view !== 'overview' ? null : (
+      <>
       <div className="grid gap-4 md:grid-cols-4">
         {loading || !snapshot ? (
           Array.from({ length: 4 }).map((_, i) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div key={i} className="glass p-5">
               <div className="skeleton h-4 w-28" />
               <div className="mt-3 skeleton h-8 w-24" />
@@ -133,7 +165,6 @@ export default function Dashboard() {
               <div className="h-full px-4">
                 <div className="mt-6 grid h-[220px] grid-cols-7 items-end gap-3">
                   {Array.from({ length: 7 }).map((_, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
                     <div key={i} className="skeleton w-full" style={{ height: `${40 + i * 18}px` }} />
                   ))}
                 </div>
@@ -163,6 +194,8 @@ export default function Dashboard() {
         <div className="lg:col-span-2">{analytics?.liveFeed ? <LiveFeed items={analytics.liveFeed} /> : <div className="glass p-6"><div className="skeleton h-5 w-40" /><div className="mt-4 space-y-3">{Array.from({length:6}).map((_,i)=>(<div key={i} className="skeleton h-10 w-full" />))}</div></div>}</div>
         <AlertPanel alerts={alerts} />
       </div>
+      </>
+      )}
     </div>
   )
 }

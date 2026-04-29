@@ -1,8 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '../lib/cn.js'
-
-const ToastCtx = createContext(null)
+import { ToastCtx } from './toastContext.js'
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -60,11 +59,5 @@ export function ToastProvider({ children }) {
       </div>
     </ToastCtx.Provider>
   )
-}
-
-export function useToast() {
-  const ctx = useContext(ToastCtx)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
-  return ctx
 }
 

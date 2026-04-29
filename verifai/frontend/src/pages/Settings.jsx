@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Save, SlidersHorizontal, BellRing, Moon, UserCog } from 'lucide-react'
-import { usePageTitle } from '../components/layout/AppLayout.jsx'
-import { useToast } from '../components/ToastProvider.jsx'
+import { Save, SlidersHorizontal, BellRing, Moon, UserCog, MessageSquareText, Send } from 'lucide-react'
+import { usePageTitle } from '../components/layout/pageTitleContext.js'
+import { useToast } from '../components/toastContext.js'
 import { cn } from '../lib/cn.js'
+import { apiSendTestWhatsApp } from '../lib/whatsappApi.js'
+import { applyTemplate, loadTwilioConfig, loadWhatsAppTemplates, saveTwilioConfig, saveWhatsAppTemplates } from '../lib/whatsappTemplates.js'
 
 const KEY = 'verifai:settings:v1'
 
@@ -37,10 +39,13 @@ export default function Settings() {
   )
 
   const [s, setS] = useState(initial)
+  const [twilio, setTwilio] = useState(() => loadTwilioConfig() ?? { accountSid: '', authToken: '', whatsappNumber: '', testPhone: '' })
+  const [templates, setTemplates] = useState(() => loadWhatsAppTemplates())
+  const [testSending, setTestSending] = useState(false)
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <div className="glass neon-ring p-5 lg:col-span-2">
+      <div className="glass neon-ring p-5 lg:col-span-1">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold">System configuration</div>
@@ -93,6 +98,64 @@ export default function Settings() {
             }}
           >
             <Save className="h-4 w-4" /> Save changes
+          </button>
+        </div>
+      </div>
+
+      <div className="glass p-5">
+        <div className="text-sm font-semibold">Message templates</div>
+        <div className="mt-0.5 text-xs text-white/60">Use placeholders: {`{name} {subject} {date} {time} {percent}`}</div>
+
+        <div className="mt-4 grid gap-3">
+          <label className="text-xs text-white/60">
+            Present (Student)
+            <textarea
+              value={templates.presentStudent}
+              onChange={(e) => setTemplates((x) => ({ ...x, presentStudent: e.target.value }))}
+              rows={5}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+            />
+          </label>
+          <label className="text-xs text-white/60">
+            Absent (Student)
+            <textarea
+              value={templates.absentStudent}
+              onChange={(e) => setTemplates((x) => ({ ...x, absentStudent: e.target.value }))}
+              rows={5}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+            />
+          </label>
+
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs font-semibold text-white/85">Live preview (Present)</div>
+              <div className="mt-3 rounded-2xl bg-black/40 p-3 text-xs text-white/80 ring-1 ring-white/10">
+                <div className="mb-2 text-[11px] text-white/55">VerifAi System • 11:30 AM</div>
+                <pre className="whitespace-pre-wrap">
+                  {applyTemplate(templates.presentStudent, { name: 'Aarav Mehta', subject: 'Data Structures', date: '28/04/2026', time: '9:02 AM', percent: 88, warning: '' })}
+                </pre>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs font-semibold text-white/85">Live preview (Absent)</div>
+              <div className="mt-3 rounded-2xl bg-black/40 p-3 text-xs text-white/80 ring-1 ring-white/10">
+                <div className="mb-2 text-[11px] text-white/55">VerifAi System • 11:31 AM</div>
+                <pre className="whitespace-pre-wrap">
+                  {applyTemplate(templates.absentStudent, { name: 'Aarav Mehta', subject: 'Data Structures', date: '28/04/2026', time: '9:02 AM', percent: 72, warning: '🚨 *Warning:* Your attendance is below 75%. Please improve regularity to avoid being barred from exams.\n\n' })}
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="btn-primary w-full"
+            onClick={() => {
+              saveWhatsAppTemplates(templates)
+              push({ title: 'Templates saved', message: 'Used for future WhatsApp notifications', variant: 'success' })
+            }}
+          >
+            <Save className="h-4 w-4" /> Save Templates
           </button>
         </div>
       </div>
@@ -183,6 +246,106 @@ export default function Settings() {
             </label>
           </div>
         </div>
+
+        <div className="glass p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold">Twilio WhatsApp setup</div>
+              <div className="mt-0.5 text-xs text-white/60">Guide + connection test</div>
+            </div>
+            <MessageSquareText className="h-4 w-4 text-[color:var(--verifai-green)]" />
+          </div>
+
+          <div className="mt-4 space-y-3 text-xs text-white/70">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="font-semibold text-white/85">Setup steps</div>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>Go to Twilio Console and create a free account.</li>
+                <li>Copy Account SID and Auth Token from the dashboard.</li>
+                <li>Messaging → Try it out → Send a WhatsApp message.</li>
+                <li>Join Twilio sandbox: send “join &lt;word&gt;-&lt;word&gt;” to +14155238886.</li>
+                <li>Create `/backend/.env` (copy from `.env.example`) and paste your credentials.</li>
+                <li>Each student/parent must also join the sandbox once to activate their number.</li>
+              </ol>
+            </div>
+
+            <label className="text-xs text-white/60">
+              Twilio Account SID
+              <input
+                value={twilio.accountSid}
+                onChange={(e) => setTwilio((x) => ({ ...x, accountSid: e.target.value }))}
+                className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+              />
+            </label>
+            <label className="text-xs text-white/60">
+              Twilio Auth Token
+              <input
+                value={twilio.authToken}
+                onChange={(e) => setTwilio((x) => ({ ...x, authToken: e.target.value }))}
+                type="password"
+                className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+              />
+            </label>
+            <label className="text-xs text-white/60">
+              WhatsApp Number (from Twilio, e.g. whatsapp:+14155238886)
+              <input
+                value={twilio.whatsappNumber}
+                onChange={(e) => setTwilio((x) => ({ ...x, whatsappNumber: e.target.value }))}
+                className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+              />
+            </label>
+            <label className="text-xs text-white/60">
+              Test Phone Number (India local like 9876543210 or full +91…)
+              <input
+                value={twilio.testPhone}
+                onChange={(e) => setTwilio((x) => ({ ...x, testPhone: e.target.value }))}
+                className="mt-1 h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+              />
+            </label>
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs">
+                Status:{' '}
+                {twilio?.accountSid && twilio?.authToken && twilio?.whatsappNumber ? (
+                  <span className="font-semibold text-[color:var(--verifai-green)]">🟢 Configured</span>
+                ) : (
+                  <span className="font-semibold text-red-200">🔴 Not configured</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  saveTwilioConfig(twilio)
+                  push({ title: 'Saved', message: 'Twilio config stored (local)', variant: 'success' })
+                }}
+              >
+                <Save className="h-4 w-4" /> Save
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={cn('btn-primary w-full', (!twilio.testPhone || testSending) && 'opacity-60')}
+              disabled={!twilio.testPhone || testSending}
+              onClick={async () => {
+                setTestSending(true)
+                try {
+                  const res = await apiSendTestWhatsApp({ toPhone: twilio.testPhone, message: '✅ VERIFAI test message — WhatsApp is connected.' })
+                  if (res?.success) push({ title: 'Test message sent', message: res.sid ? `SID ${res.sid}` : 'Queued', variant: 'success' })
+                  else push({ title: 'Test failed', message: res?.error || 'Unknown error', variant: 'error' })
+                } catch {
+                  push({ title: 'Test failed', message: 'Backend not reachable (start /backend)', variant: 'error' })
+                } finally {
+                  setTestSending(false)
+                }
+              }}
+            >
+              <Send className="h-4 w-4" /> Send Test Message
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   )

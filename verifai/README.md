@@ -5,6 +5,7 @@
 AI-powered attendance + access control demo with:
 
 - **Frontend**: React + Tailwind + Framer Motion + Recharts + Lucide icons
+- **Exports**: CSV + basic PDF export (jsPDF)
 - **Backend**: FastAPI (mock endpoints matching the UI)
 
 ### Project structure
@@ -14,6 +15,27 @@ verifai/
   frontend/   # React UI
   backend/    # FastAPI API server (mock data)
 ```
+
+### WhatsApp notification backend (Twilio)
+
+This repo also includes a Node.js service for sending WhatsApp attendance notifications via Twilio:
+
+```bash
+cd backend
+npm install
+# copy .env.example → .env and fill credentials
+npm run dev
+```
+
+Runs at `http://localhost:3001`.
+
+Twilio sandbox setup:
+
+1. Create Twilio account in the console.
+2. Messaging → Try it out → WhatsApp sandbox.
+3. Send the shown “join …” message to `whatsapp:+14155238886` from each phone you want to message.
+4. Add credentials to `/backend/.env`.
+5. Start the backend and use `/settings` → “Send Test Message”.
 
 ### Run the backend (FastAPI)
 

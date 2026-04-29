@@ -7,13 +7,19 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "download-models": "node scripts/download-models.mjs"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "framer-motion": "^12.38.0",
+    "html5-qrcode": "^2.3.8",
+    "jspdf": "^3.0.3",
     "lucide-react": "^1.11.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-qr-code": "^2.0.18",
     "react-router-dom": "^7.14.2",
     "recharts": "^3.8.1"
   },

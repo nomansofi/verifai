@@ -11,10 +11,11 @@ import {
   Bar,
 } from 'recharts'
 import { TrendingUp, Users, UserMinus } from 'lucide-react'
-import { usePageTitle } from '../components/layout/AppLayout.jsx'
+import { usePageTitle } from '../components/layout/pageTitleContext.js'
 import { apiGetAttendance } from '../lib/api.js'
 import { MOCK_DEPARTMENTS } from '../data/mock.js'
 import { cn } from '../lib/cn.js'
+import ToggleBar from '../components/ToggleBar.jsx'
 
 function HeatCell({ value }) {
   const level = value >= 95 ? 4 : value >= 90 ? 3 : value >= 80 ? 2 : value >= 70 ? 1 : 0
@@ -35,9 +36,9 @@ export default function Analytics() {
   const { setTitle } = usePageTitle()
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState('trends') // trends | departments
 
   useEffect(() => setTitle('Analytics'), [setTitle])
-
   useEffect(() => {
     let alive = true
     async function run() {
@@ -108,6 +109,18 @@ export default function Analytics() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm font-semibold">Analytics</div>
+        <ToggleBar
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'trends', label: 'Trends' },
+            { value: 'departments', label: 'Departments' },
+          ]}
+        />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <div className="glass px-5 py-4">
           <div className="flex items-center justify-between">
@@ -171,6 +184,7 @@ export default function Analytics() {
         </div>
       </div>
 
+      {view !== 'trends' ? null : (
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="glass overflow-hidden lg:col-span-2">
           <div className="border-b border-white/10 px-4 py-3">
@@ -210,17 +224,14 @@ export default function Analytics() {
             {loading || !derived ? (
               <div className="grid grid-cols-6 gap-2">
                 {Array.from({ length: 30 }).map((_, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
                   <div key={i} className="skeleton h-6 w-6 rounded-md" />
                 ))}
               </div>
             ) : (
               <div className="space-y-2">
                 {derived.heatRows.map((row, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
                   <div key={i} className="grid grid-cols-6 gap-2">
                     {row.map((v, j) => (
-                      // eslint-disable-next-line react/no-array-index-key
                       <HeatCell key={j} value={v} />
                     ))}
                   </div>
@@ -233,7 +244,9 @@ export default function Analytics() {
           </div>
         </div>
       </div>
+      )}
 
+      {view !== 'departments' ? null : (
       <div className="glass overflow-hidden">
         <div className="border-b border-white/10 px-4 py-3">
           <div className="text-sm font-semibold">Department-wise attendance</div>
@@ -261,6 +274,7 @@ export default function Analytics() {
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

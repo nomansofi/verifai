@@ -31,6 +31,19 @@ export async function apiGetUsers() {
   return data?.users ?? MOCK_USERS.map((u) => ({ ...u, photoUrl: null }))
 }
 
+export async function apiAddUser({ id, name, role, department }) {
+  const data = await safeFetch('/api/users', {
+    method: 'POST',
+    body: JSON.stringify({ id, name, role, department }),
+  })
+  return data ?? { ok: true, user: { id, name, role, department } }
+}
+
+export async function apiDeleteUser(id) {
+  const data = await safeFetch(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return data ?? { ok: true, removed: 1 }
+}
+
 export async function apiGetAlerts() {
   const data = await safeFetch('/api/alerts')
   return data?.alerts ?? MOCK_ALERTS

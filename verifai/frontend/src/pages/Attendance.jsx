@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, FileText, CalendarDays, Filter } from 'lucide-react'
-import { usePageTitle } from '../components/layout/AppLayout.jsx'
+import { Download, FileText, CalendarDays, Filter, Send } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import { usePageTitle } from '../components/layout/pageTitleContext.js'
 import { apiGetAttendance } from '../lib/api.js'
 import { MOCK_DEPARTMENTS } from '../data/mock.js'
-import { useToast } from '../components/ToastProvider.jsx'
+import { useToast } from '../components/toastContext.js'
 import { cn } from '../lib/cn.js'
+import { loadUsersDb } from '../lib/usersDb.js'
+import { loadWhatsAppTemplates } from '../lib/whatsappTemplates.js'
 
 function StatusPill({ status }) {
   return (
@@ -43,13 +46,95 @@ function downloadCsv(filename, rows) {
   URL.revokeObjectURL(url)
 }
 
+async function blobToDataUrl(blob) {
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = () => reject(new Error('Failed to read blob'))
+    r.readAsDataURL(blob)
+  })
+}
+
+async function loadLogoDataUrl() {
+  const res = await fetch('/verifai-logo.png', { cache: 'force-cache' })
+  const blob = await res.blob()
+  return await blobToDataUrl(blob)
+}
+
+async function downloadPdf(filename, rows, meta) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  const left = 40
+  let y = 48
+  const logo = await loadLogoDataUrl().catch(() => null)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(18)
+  if (logo) {
+    doc.addImage(logo, 'PNG', left, y - 22, 28, 28)
+  }
+  doc.text('VerifAi — Attendance Records', left + (logo ? 36 : 0), y)
+  y += 18
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text(`Exported: ${new Date().toLocaleString()}`, left, y)
+  y += 14
+  doc.text(`Filters: ${meta}`, left, y)
+  y += 18
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Name', left, y)
+  doc.text('ID', left + 180, y)
+  doc.text('Date', left + 290, y)
+  doc.text('Status', left + 360, y)
+  doc.text('Method', left + 430, y)
+  y += 12
+  doc.setDrawColor(255, 255, 255)
+  doc.setLineWidth(0.5)
+  doc.setDrawColor(60, 60, 60)
+  doc.line(left, y, 560, y)
+  y += 12
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  const pageBottom = 780
+  const maxRows = Math.min(rows.length, 120)
+  for (let i = 0; i < maxRows; i++) {
+    const r = rows[i]
+    if (y > pageBottom) {
+      doc.addPage()
+      y = 48
+    }
+    doc.text(String(r.name).slice(0, 28), left, y)
+    doc.text(String(r.userId), left + 180, y)
+    doc.text(String(r.date), left + 290, y)
+    doc.text(String(r.status), left + 360, y)
+    doc.text(String(r.method), left + 430, y)
+    y += 14
+  }
+  if (rows.length > maxRows) {
+    if (y > pageBottom) {
+      doc.addPage()
+      y = 48
+    }
+    doc.setFontSize(9)
+    doc.text(`… truncated (${rows.length - maxRows} more rows)`, left, y)
+  }
+
+  doc.save(filename)
+}
+
 export default function Attendance() {
   const { setTitle } = usePageTitle()
   const { push } = useToast()
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
+  const [broadcasting, setBroadcasting] = useState(false)
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const [startDate, setStartDate] = useState(today)
+  const [endDate, setEndDate] = useState(today)
   const [dept, setDept] = useState('All')
   const [status, setStatus] = useState('All')
   const [method, setMethod] = useState('All')
@@ -60,7 +145,14 @@ export default function Attendance() {
     let alive = true
     async function run() {
       setLoading(true)
-      const data = await apiGetAttendance()
+      const params = {
+        ...(dept !== 'All' ? { department: dept } : {}),
+        ...(status !== 'All' ? { status } : {}),
+        ...(method !== 'All' ? { method } : {}),
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+      }
+      const data = await apiGetAttendance(params)
       if (!alive) return
       setRecords(data)
       setLoading(false)
@@ -69,35 +161,42 @@ export default function Attendance() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [dept, status, method, startDate, endDate])
 
   const filtered = useMemo(() => {
-    return records.filter((r) => {
-      const okDate = !date || r.date === date
-      const okDept = dept === 'All' || r.department === dept
-      const okStatus = status === 'All' || r.status === status
-      const okMethod = method === 'All' || r.method === method
-      return okDate && okDept && okStatus && okMethod
-    })
-  }, [records, date, dept, status, method])
+    return records
+  }, [records])
 
   return (
     <div className="space-y-4">
       <div className="glass neon-ring flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--verifai-border)] bg-[color:var(--verifai-card)] px-3 py-2 text-xs text-[color:var(--verifai-muted)]">
             <CalendarDays className="h-4 w-4 text-[color:var(--verifai-cyan)]" />
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent text-white/85 outline-none"
-            />
+            <div className="flex items-center gap-2">
+              <span className="text-[color:var(--verifai-muted)]">From</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent text-[color:var(--verifai-text)] outline-none"
+              />
+              <span className="text-[color:var(--verifai-muted)]">To</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent text-[color:var(--verifai-text)] outline-none"
+              />
+              <button type="button" className="btn-ghost !px-3 !py-1.5" onClick={() => { setStartDate(today); setEndDate(today) }}>
+                Today
+              </button>
+            </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--verifai-border)] bg-[color:var(--verifai-card)] px-3 py-2 text-xs text-[color:var(--verifai-muted)]">
             <Filter className="h-4 w-4 text-[color:var(--verifai-green)]" />
-            <select value={dept} onChange={(e) => setDept(e.target.value)} className="bg-transparent text-white/85 outline-none">
+            <select value={dept} onChange={(e) => setDept(e.target.value)} className="bg-transparent text-[color:var(--verifai-text)] outline-none">
               <option value="All">All depts</option>
               {MOCK_DEPARTMENTS.map((d) => (
                 <option key={d} value={d}>
@@ -108,7 +207,7 @@ export default function Attendance() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="bg-transparent text-white/85 outline-none"
+              className="bg-transparent text-[color:var(--verifai-text)] outline-none"
             >
               <option value="All">All status</option>
               <option value="PRESENT">Present</option>
@@ -118,7 +217,7 @@ export default function Attendance() {
             <select
               value={method}
               onChange={(e) => setMethod(e.target.value)}
-              className="bg-transparent text-white/85 outline-none"
+              className="bg-transparent text-[color:var(--verifai-text)] outline-none"
             >
               <option value="All">All methods</option>
               <option value="FACE">Face</option>
@@ -130,15 +229,73 @@ export default function Attendance() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            className={cn('btn-primary', broadcasting && 'opacity-60')}
+            disabled={broadcasting}
+            onClick={async () => {
+              setBroadcasting(true)
+              try {
+                const db = loadUsersDb()
+                const students = db.filter((u) => u.role === 'student')
+                const templates = loadWhatsAppTemplates()
+                const todayKey = new Date().toDateString()
+
+                push({ title: 'Broadcast started', message: `Sending to ${students.length} students…`, variant: 'info' })
+                const res = await fetch('http://localhost:3001/api/notify/broadcast/daily', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    students,
+                    todayKey,
+                    subject: 'General',
+                    templates,
+                    paceMs: 500,
+                  }),
+                }).then((r) => r.json())
+
+                if (!res?.success) {
+                  push({ title: 'Broadcast failed', message: res?.error || 'Unknown error', variant: 'error' })
+                  return
+                }
+                push({
+                  title: 'Broadcast complete',
+                  message: `${res.sent} sent • ${res.failed} failed • ${res.skipped} skipped`,
+                  variant: res.failed ? 'error' : 'success',
+                })
+              } catch {
+                push({ title: 'Broadcast failed', message: 'Backend not reachable (start /backend)', variant: 'error' })
+              } finally {
+                setBroadcasting(false)
+              }
+            }}
+          >
+            <Send className="h-4 w-4" /> Send All Notifications
+          </button>
+          <button
+            type="button"
             className="btn-ghost"
-            onClick={() => downloadCsv(`verifai-attendance-${date || 'all'}.csv`, filtered)}
+            onClick={() => downloadCsv(`verifai-attendance-${startDate || 'all'}_to_${endDate || 'all'}.csv`, filtered)}
           >
             <Download className="h-4 w-4" /> Export CSV
           </button>
           <button
             type="button"
             className="btn-ghost"
-            onClick={() => push({ title: 'PDF export', message: 'Mock action — wire a PDF generator next', variant: 'info' })}
+            onClick={() => {
+              ;(async () => {
+                try {
+                const meta = [
+                  startDate && endDate ? `${startDate} → ${endDate}` : 'all dates',
+                  dept !== 'All' ? `dept=${dept}` : null,
+                  status !== 'All' ? `status=${status}` : null,
+                  method !== 'All' ? `method=${method}` : null,
+                ].filter(Boolean).join(' • ')
+                await downloadPdf(`verifai-attendance-${startDate || 'all'}_to_${endDate || 'all'}.pdf`, filtered, meta || 'none')
+                push({ title: 'PDF exported', message: `${Math.min(filtered.length, 120)} rows`, variant: 'success' })
+                } catch {
+                push({ title: 'PDF export failed', message: 'Try CSV export or reload the page', variant: 'error' })
+                }
+              })()
+            }}
           >
             <FileText className="h-4 w-4" /> Export PDF
           </button>
@@ -167,7 +324,6 @@ export default function Attendance() {
             <tbody className="divide-y divide-white/10">
               {loading
                 ? Array.from({ length: 12 }).map((_, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
                     <tr key={i}>
                       <td className="px-4 py-3">
                         <div className="skeleton h-4 w-40" />
