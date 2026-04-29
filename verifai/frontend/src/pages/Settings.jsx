@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Save, SlidersHorizontal, BellRing, Moon, UserCog, MessageSquareText, Send } from 'lucide-react'
+import { Save, SlidersHorizontal, BellRing, Moon, UserCog, MessageSquareText, Send, Bot, Eye, EyeOff, FlaskConical } from 'lucide-react'
 import { usePageTitle } from '../components/layout/pageTitleContext.js'
 import { useToast } from '../components/toastContext.js'
 import { cn } from '../lib/cn.js'
@@ -7,6 +7,8 @@ import { apiSendTestWhatsApp } from '../lib/whatsappApi.js'
 import { applyTemplate, loadTwilioConfig, loadWhatsAppTemplates, saveTwilioConfig, saveWhatsAppTemplates } from '../lib/whatsappTemplates.js'
 
 const KEY = 'verifai:settings:v1'
+const CHATBOT_KEY = 'verifai_groq_api_key'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
 
 function loadSettings() {
   try {
@@ -42,6 +44,9 @@ export default function Settings() {
   const [twilio, setTwilio] = useState(() => loadTwilioConfig() ?? { accountSid: '', authToken: '', whatsappNumber: '', testPhone: '' })
   const [templates, setTemplates] = useState(() => loadWhatsAppTemplates())
   const [testSending, setTestSending] = useState(false)
+  const [aiKeyInput, setAiKeyInput] = useState(() => localStorage.getItem(CHATBOT_KEY) || '')
+  const [showAiKey, setShowAiKey] = useState(false)
+  const [aiTesting, setAiTesting] = useState(false)
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -189,6 +194,94 @@ export default function Settings() {
                 className="h-4 w-4 accent-[color:var(--verifai-cyan)]"
               />
             </label>
+          </div>
+        </div>
+
+        <div className="glass p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold">🤖 AI Chatbot — Groq Configuration</div>
+              <div className="mt-0.5 text-xs text-white/60">Powered by Groq ({GROQ_MODEL})</div>
+            </div>
+            <Bot className="h-4 w-4 text-[color:var(--verifai-green)]" />
+          </div>
+
+          <div className="mt-4 space-y-3 text-xs text-white/70">
+            <label className="text-xs text-white/60">
+              Groq API Key
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  value={aiKeyInput}
+                  onChange={(e) => setAiKeyInput(e.target.value)}
+                  type={showAiKey ? 'text' : 'password'}
+                  placeholder="gsk_..."
+                  className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-[rgba(0,255,136,0.35)]"
+                />
+                <button type="button" className="btn-ghost !px-3" onClick={() => setShowAiKey((v) => !v)}>
+                  {showAiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    localStorage.setItem(CHATBOT_KEY, aiKeyInput.trim())
+                    push({ title: 'Saved', message: 'AI key saved in browser', variant: 'success' })
+                  }}
+                >
+                  <Save className="h-4 w-4" /> Save
+                </button>
+              </div>
+            </label>
+
+            <div className="text-[11px] text-white/55">
+              Get your free key at: <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="text-[color:var(--verifai-cyan)] underline">console.groq.com</a>
+            </div>
+
+            <div className="text-xs">
+              Status:{' '}
+              {aiKeyInput.trim() ? (
+                <span className="font-semibold text-[color:var(--verifai-green)]">🟢 Connected</span>
+              ) : (
+                <span className="font-semibold text-red-200">🔴 Not configured</span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className={cn('btn-primary w-full', (!aiKeyInput.trim() || aiTesting) && 'opacity-60')}
+              disabled={!aiKeyInput.trim() || aiTesting}
+              onClick={async () => {
+                setAiTesting(true)
+                try {
+                  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${aiKeyInput.trim()}`,
+                    },
+                    body: JSON.stringify({
+                      model: GROQ_MODEL,
+                      max_tokens: 64,
+                      messages: [{ role: 'user', content: 'Reply with: VerifAI chatbot connected.' }],
+                    }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (res.ok) push({ title: 'AI test successful', message: 'Groq API responded', variant: 'success' })
+                  else push({ title: 'AI test failed', message: data?.error?.message || `HTTP ${res.status}`, variant: 'error' })
+                } catch {
+                  push({ title: 'AI test failed', message: 'Network/API error', variant: 'error' })
+                } finally {
+                  setAiTesting(false)
+                }
+              }}
+            >
+              <FlaskConical className="h-4 w-4" /> 🧪 Send Test Message
+            </button>
+            <div className="text-[11px] text-white/55">
+              Model: {GROQ_MODEL}
+              <br />
+              Speed: Ultra fast (Groq LPU)
+            </div>
           </div>
         </div>
 

@@ -49,7 +49,7 @@ function computeClassWindowKey({ studentId, mode, subjectFallback }) {
     return `${today}|${subject}|${cls.day || ''}|${cls.startTime}-${cls.endTime}|${studentId}`
   }
   // Fallback: treat a “class duration” as 60 minutes buckets
-  const bucket = Math.floor(Date.now() / (60 * 60 * 1000))
+  const bucket = Math.floor(Date.now() / (3 * 60 * 1000))
   return `${today}|${subject}|bucket:${bucket}|${studentId}`
 }
 

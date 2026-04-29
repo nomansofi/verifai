@@ -6,6 +6,7 @@ import { PageTitleCtx } from './pageTitleContext.js'
 import { getCurrentUser } from '../../lib/usersDb.js'
 import { getUiPrefs } from '../../lib/verifaiDb.js'
 import StudentBottomNav from '../StudentBottomNav.jsx'
+import FloatingChatBot from '../FloatingChatBot.jsx'
 
 export default function RoleLayout() {
   const [title, setTitle] = useState('Dashboard')
@@ -47,6 +48,7 @@ export default function RoleLayout() {
                 <Outlet />
               </main>
             </div>
+            <FloatingChatBot />
           </div>
         )}
       </div>

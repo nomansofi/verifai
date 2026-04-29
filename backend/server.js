@@ -3,6 +3,7 @@ const cors = require('cors')
 const cron = require('node-cron')
 const fs = require('fs')
 const path = require('path')
+const https = require('https')
 require('dotenv').config()
 
 const { sendWhatsApp } = require('./whatsapp')
@@ -33,6 +34,53 @@ function isOptedOut(studentId) {
   if (!studentId) return false
   const arr = readJson(OPT_OUT_FILE, [])
   return Array.isArray(arr) && arr.includes(studentId)
+}
+
+function buildCallMeBotUrl(baseUrl, text) {
+  const u = new URL(baseUrl)
+  const pairs = []
+  for (const [k, v] of u.searchParams.entries()) {
+    if (k !== 'text') pairs.push([k, v])
+  }
+  pairs.push(['text', text])
+  const qs = pairs.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')
+  return `${u.origin}${u.pathname}?${qs}`
+}
+
+function httpGetText(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      },
+      (res) => {
+        let body = ''
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          resolve({ statusCode: res.statusCode || 0, body })
+        })
+      },
+    )
+    req.on('error', (err) => reject(err))
+    req.setTimeout(8000, () => {
+      req.destroy(new Error('CallMeBot timeout'))
+    })
+  })
+}
+
+function sanitizeLocationForCallMeBot(location) {
+  const raw = String(location || '').trim()
+  if (!raw) return 'Unavailable'
+  // CallMeBot blocks many messages containing raw coordinates; keep a safe human-readable status.
+  const hasCoordLike = /-?\d+(\.\d+)?\s*[, ]\s*-?\d+(\.\d+)?/.test(raw) || /lat|lon|longitude|latitude/i.test(raw)
+  if (hasCoordLike) return 'Captured on device'
+  return raw
 }
 
 // ─── SEND ATTENDANCE NOTIFICATION ───────────────────
@@ -294,6 +342,53 @@ app.post('/api/notify/test', async (req, res) => {
     res.json({ success: true, sid: result.sid })
   } catch (err) {
     res.json({ success: false, error: err.message })
+  }
+})
+
+// ─── SEND TELEGRAM VIA CALLMEBOT ────────────────────
+app.post('/api/notify/telegram-callmebot', async (req, res) => {
+  try {
+    const {
+      callmebotUrl,
+      studentName,
+      studentId,
+      department,
+      subject,
+      status,
+      method,
+      date,
+      time,
+      confidence,
+      location,
+    } = req.body || {}
+
+    if (!callmebotUrl) return res.json({ success: false, error: 'Missing callmebotUrl' })
+
+    const text =
+      `VerifAI Attendance | ` +
+      `Name: ${studentName || 'Student'} | ` +
+      `ID: ${studentId || '-'} | ` +
+      `Dept: ${department || '-'} | ` +
+      `Status: ${String(status || '').toUpperCase() || 'PRESENT'} | ` +
+      `Method: ${String(method || '').toUpperCase() || 'FACE'} | ` +
+      `Sub: ${subject || 'General'} | ` +
+      `Time: ${`${date || ''} ${time || ''}`.trim()} | ` +
+      `Loc: ${sanitizeLocationForCallMeBot(location)} | ` +
+      `Conf: ${typeof confidence === 'number' ? `${confidence}%` : '-'}`
+
+    const endpoint = buildCallMeBotUrl(callmebotUrl, text)
+    const response = await httpGetText(endpoint)
+    const body = String(response.body || '')
+    const ok = response.statusCode >= 200 && response.statusCode < 300 && /successful|sent|queued|success|ok|message/i.test(body)
+
+    res.json({
+      success: ok,
+      httpStatus: response.statusCode,
+      response: String(body || '').slice(0, 500),
+      endpointHost: new URL(endpoint).host,
+    })
+  } catch (err) {
+    res.json({ success: false, error: err.message || 'CallMeBot request failed' })
   }
 })
 

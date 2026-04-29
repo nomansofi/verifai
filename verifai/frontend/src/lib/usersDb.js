@@ -1,3 +1,5 @@
+import { sendAttendanceTelegram } from './callmebotApi.js'
+
 const KEY = 'verifai_users_db'
 const CURRENT_USER_KEY = 'verifai_current_user'
 
@@ -96,6 +98,7 @@ export function addAttendanceForStudentName(name, { status = 'present', method =
   const prev = Array.isArray(db[idx].attendanceRecords) ? db[idx].attendanceRecords : []
   db[idx] = { ...db[idx], attendanceRecords: [...prev, rec] }
   saveUsersDb(db)
+  sendAttendanceTelegram({ student: db[idx], record: rec }).catch(() => {})
   return { ok: true, record: rec }
 }
 
@@ -114,6 +117,7 @@ export function addAttendanceForStudentId(username, { status = 'present', method
   const prev = Array.isArray(db[idx].attendanceRecords) ? db[idx].attendanceRecords : []
   db[idx] = { ...db[idx], attendanceRecords: [...prev, rec] }
   saveUsersDb(db)
+  sendAttendanceTelegram({ student: db[idx], record: rec }).catch(() => {})
   return { ok: true, record: rec }
 }
 
